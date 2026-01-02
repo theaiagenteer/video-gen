@@ -1,0 +1,57 @@
+# VideoGen Agency PRD (v1.0)
+
+## Objective
+Create a three-agent media production agency that can research topics, plan responses, and generate multimedia assets (voiceovers, screenshots of code snippets, and images) under a manager’s direction.
+
+## Agents
+1) **Manager Agent** (entry point)  
+   - Intake user goals/requirements and confirm scope.  
+   - Break requests into research and asset-generation tasks; set quality criteria.  
+   - Review research summaries and asset drafts; request revisions; deliver final package.
+
+2) **Research Agent**  
+   - Perform live web research using `WebSearchTool`.  
+   - Produce concise summaries with citations/links and recommended talking points or scripts.  
+   - Highlight gaps/risks for the Manager to resolve.
+
+3) **Assets Generator**  
+   - Generate voiceovers via ElevenLabs TTS tool.  
+   - Render code snapshots via a Ray.so Playwright tool.  
+   - Generate images via `ImageGenerationTool`.  
+   - Use `PersistentShellTool` for lightweight editing/combining assets (no files folder usage; operate in dedicated output directories).
+
+## Tools
+- **WebSearchTool** (built-in) — Research Agent.  
+- **GenerateVoiceoverTool** (custom, ElevenLabs API) — Assets Generator.  
+- **RaySoSnapshotTool** (custom, Playwright) — Assets Generator.  
+- **ImageGenerationTool** (built-in) — Assets Generator.  
+- **PersistentShellTool** (built-in) — Assets Generator for editing/combining outputs.
+
+### Tool Outputs & Paths
+- Default to saving generated assets under `outputs/` (e.g., `outputs/voiceovers/`, `outputs/snapshots/`, `outputs/images/`).  
+- Final video renders should target `/mnt/video_final/<filename>` when available; if the directory is missing, ask the user to create/provide an alternative.  
+- Do **not** use `files/` directories for custom code or storage.
+
+## Communication Flow (orchestrator)
+- Manager ↔ Research Agent  
+- Manager ↔ Assets Generator  
+- Manager is the sole user-facing entry point.
+
+## Environment & Keys
+- Required: `OPENAI_API_KEY` (all agents, built-in tools).  
+- Required: `ELEVENLABS_API_KEY` (GenerateVoiceoverTool).  
+- Playwright browsers: run `python -m playwright install chromium` once after dependencies.
+
+## Assumptions
+- User provides clear content goals (topic, audience, tone, target formats).  
+- Voiceover text provided or synthesized from research summaries.  
+- Ray.so accepts direct code snippets without additional auth.
+
+## Open Questions for User
+1) What should we name the agency (e.g., `videogen_agency`)?  
+2) Preferred default output directories/file names for voiceovers, snapshots, and images?  
+3) Voiceover defaults: language/voice/model/output format ok as in provided snippet?  
+4) Ray.so snapshot defaults: theme/background preferences?  
+5) Final video path: is `/mnt/video_final/<filename>` guaranteed to exist, or should we prompt before rendering there?  
+6) Any content safety/brand constraints the Manager should enforce?  
+7) Does “DONT ADD FILES FOLDER CODE Anywhere” mean no `files/` directories at all, or simply no code placed there?

@@ -1,0 +1,5 @@
+agency-swarm[fastapi]>=1.2.1
+fastapi
+uvicorn
+elevenlabs>=1.3.0
+playwright>=1.48.0
