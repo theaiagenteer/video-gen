@@ -8,14 +8,7 @@ assets_generator = Agent(
     instructions="./instructions.md",
 
     tools_folder="./tools",
-    tools=[
-        ImageGenerationTool(
-            tool_config={
-							  "type" :"image_generation",
-                "model": "gpt-image-1",
-            }
-        ),
-    ],
+    
     model="gpt-5.2",
     model_settings=ModelSettings(
         reasoning=Reasoning(effort="medium", summary="auto"),

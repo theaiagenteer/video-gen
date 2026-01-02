@@ -1,15 +1,38 @@
 import asyncio
-import time
 from pathlib import Path
+
 from agency_swarm.tools import BaseTool
 from pydantic import Field, field_validator
-from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
+
+from PIL import Image, ImageDraw, ImageFont
+from pygments import highlight
+from pygments.lexers import guess_lexer, get_lexer_by_name
+from pygments.formatter import Formatter
+from pygments.styles import get_style_by_name
+
+
+class _ImageFormatter(Formatter):
+    def __init__(self, style_name="monokai"):
+        super().__init__()
+        self.style = get_style_by_name(style_name)
+        self.tokens = []
+
+    def format(self, tokensource, outfile):
+        for ttype, value in tokensource:
+            style = self.style.style_for_token(ttype)
+            color = style.get("color") or "f8f8f2"
+            self.tokens.append((value, f"#{color}"))
+
 
 class RaySoSnapshotTool(BaseTool):
     code: str = Field(..., description="Code snippet to render in the image.")
     output_path: str = Field(
         "outputs/snapshots/rayso_snapshot.png",
         description="Local path (including filename) where the PNG will be saved.",
+    )
+    language: str | None = Field(
+        None,
+        description="Optional language override (python, js, cpp, etc).",
     )
 
     @field_validator("code")
@@ -24,44 +47,54 @@ class RaySoSnapshotTool(BaseTool):
 
     async def _run_async(self) -> str:
         output_file = Path(self.output_path).resolve()
-        download_dir = output_file.parent
-        download_dir.mkdir(parents=True, exist_ok=True)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Browserless CDP endpoint with token
-        token = "2TiZ4xXMjxj1FIM6fffda6f102ea737e6005371987c75cc7e"
-        ws_endpoint = f"wss://production-sfo.browserless.io?token={token}"
+        # === Styling ===
+        bg_color = "#1e1e1e"
+        padding = 48
+        line_spacing = 12
+        font_size = 28
+        font_path = "C:/Windows/Fonts/consola.ttf"  # change if needed
 
-        async with async_playwright() as p:
-            # Connect to remote Browserless Chrome
-            browser = await p.chromium.connect_over_cdp(ws_endpoint)
+        font = ImageFont.truetype(font_path, font_size)
 
-            # Use default context (Browserless starts a fresh one)
-            context = browser.contexts[0] if browser.contexts else await browser.new_context()
+        lexer = (
+            get_lexer_by_name(self.language)
+            if self.language
+            else guess_lexer(self.code)
+        )
 
-            # New page for Ray.so
-            page = await context.new_page()
+        formatter = _ImageFormatter()
+        highlight(self.code, lexer, formatter)
 
-            await page.goto("https://ray.so/", wait_until="networkidle")
+        dummy = Image.new("RGB", (1, 1))
+        dummy_draw = ImageDraw.Draw(dummy)
 
-            # Wait for textarea, type code
-            try:
-                textarea = await page.wait_for_selector("textarea", timeout=15000)
-            except PlaywrightTimeoutError:
-                await browser.close()
-                raise RuntimeError("Editor textarea not found on Ray.so")
+        lines = "".join(t[0] for t in formatter.tokens).split("\n")
+        max_width = max(
+            dummy_draw.textlength(line, font=font) for line in lines
+        )
+        height = (font_size + line_spacing) * len(lines)
 
-            await textarea.fill(self.code)
+        img = Image.new(
+            "RGB",
+            (int(max_width + padding * 2), int(height + padding * 2)),
+            bg_color,
+        )
+        draw = ImageDraw.Draw(img)
 
-            # Click "Export as PNG"
-            export_button = await page.wait_for_selector("//button[contains(., 'Export as PNG')]", timeout=15000)
-            await export_button.click()
+        x = padding
+        y = padding
 
-            # Wait for download to be triggered
-            download = await page.wait_for_event("download", timeout=30000)
-            # Save the downloaded PNG
-            await download.save_as(str(output_file))
+        for value, color in formatter.tokens:
+            parts = value.split("\n")
+            for i, part in enumerate(parts):
+                if part:
+                    draw.text((x, y), part, font=font, fill=color)
+                    x += draw.textlength(part, font=font)
+                if i < len(parts) - 1:
+                    x = padding
+                    y += font_size + line_spacing
 
-            # Close browser session
-            await browser.close()
-
-        return f"Ray.so snapshot saved to {output_file}"
+        img.save(output_file)
+        return f"Ray-style snapshot saved to {output_file}"
