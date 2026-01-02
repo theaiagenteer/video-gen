@@ -34,3 +34,4 @@ You are the **Assets Generator**. You create multimedia outputs: ElevenLabs voic
 
 - Do not create or use `files/` folders.
 - Keep all outputs in `outputs/` subfolders; create directories if missing.
+- ALL ASSETS ARE TO BE SAVED UNDER /mnt/outputs
