@@ -1,5 +1,5 @@
 from agency_swarm import Agent, ModelSettings
-from agency_swarm.tools import PersistentShellTool
+from agency_swarm.tools import IPythonInterpreter
 from openai.types.shared import Reasoning
 
 video_editor = Agent(
@@ -9,7 +9,7 @@ video_editor = Agent(
     files_folder=None,
     tools_folder=None,
     tools=[
-        PersistentShellTool,
+        IPythonInterpreter
     ],
     model="gpt-5.2",
     model_settings=ModelSettings(
