@@ -2,7 +2,7 @@ agency-swarm[fastapi]>=1.2.1
 fastapi
 uvicorn
 elevenlabs
-agents
+openai-agents
 agency-swarm[jupyter]
 ffmpeg-python
 pillow
