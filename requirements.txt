@@ -5,5 +5,5 @@ elevenlabs
 agents
 agency-swarm[jupyter]
 python-ffmpeg
-PIL
+pillow
 Pygments
