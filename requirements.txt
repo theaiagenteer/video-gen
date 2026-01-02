@@ -4,6 +4,6 @@ uvicorn
 elevenlabs
 agents
 agency-swarm[jupyter]
-python-ffmpeg
+ffmpeg-python
 pillow
 Pygments
