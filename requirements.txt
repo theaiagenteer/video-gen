@@ -7,3 +7,4 @@ agency-swarm[jupyter]
 ffmpeg-python
 pillow
 Pygments
+fonttools
