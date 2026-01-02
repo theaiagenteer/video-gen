@@ -6,3 +6,6 @@ playwright>=1.48.0
 selenium
 agency-swarm[jupyter]
 python-ffmpeg
+PIL
+pygments
+jupyter-client
