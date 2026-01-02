@@ -5,7 +5,7 @@ from agency_swarm.tools import BaseTool
 from pydantic import Field, field_validator
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
-class PlaywrightRaySoSnapshotTool(BaseTool):
+class RaySoSnapshotTool(BaseTool):
     code: str = Field(..., description="Code snippet to render in the image.")
     output_path: str = Field(
         "outputs/snapshots/rayso_snapshot.png",
