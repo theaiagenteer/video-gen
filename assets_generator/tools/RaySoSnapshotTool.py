@@ -1,28 +1,16 @@
-import re
+import asyncio
 import time
 from pathlib import Path
-
 from agency_swarm.tools import BaseTool
 from pydantic import Field, field_validator
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
-
-class RaySoSnapshotTool(BaseTool):
-    """
-    Render code into a ray.so-styled image and save it locally (Selenium-based export).
-    """
-
+class PlaywrightRaySoSnapshotTool(BaseTool):
     code: str = Field(..., description="Code snippet to render in the image.")
     output_path: str = Field(
         "outputs/snapshots/rayso_snapshot.png",
         description="Local path (including filename) where the PNG will be saved.",
     )
-    headless: bool = Field(True, description="Whether to run Chrome headless.")
 
     @field_validator("code")
     @classmethod
@@ -32,75 +20,48 @@ class RaySoSnapshotTool(BaseTool):
         return value
 
     def run(self) -> str:
+        return asyncio.run(self._run_async())
+
+    async def _run_async(self) -> str:
         output_file = Path(self.output_path).resolve()
         download_dir = output_file.parent
         download_dir.mkdir(parents=True, exist_ok=True)
 
-        chrome_options = Options()
-        if self.headless:
-            chrome_options.add_argument("--headless=new")
+        # Browserless CDP endpoint with token
+        token = "2TiZ4xXMjxj1FIM6fffda6f102ea737e6005371987c75cc7e"
+        ws_endpoint = f"wss://production-sfo.browserless.io?token={token}"
 
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--window-size=1400,900")
+        async with async_playwright() as p:
+            # Connect to remote Browserless Chrome
+            browser = await p.chromium.connect_over_cdp(ws_endpoint)
 
-        chrome_options.add_experimental_option(
-            "prefs",
-            {
-                "download.default_directory": str(download_dir),
-                "download.prompt_for_download": False,
-                "download.directory_upgrade": True,
-                "safebrowsing.enabled": True,
-            },
-        )
+            # Use default context (Browserless starts a fresh one)
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
 
-        driver = webdriver.Chrome(options=chrome_options)
-        wait = WebDriverWait(driver, 20)
+            # New page for Ray.so
+            page = await context.new_page()
 
-        try:
-            driver.get("https://ray.so/")
+            await page.goto("https://ray.so/", wait_until="networkidle")
 
-            # Wait for editor textarea
-            textarea = wait.until(
-                EC.presence_of_element_located((By.TAG_NAME, "textarea"))
-            )
+            # Wait for textarea, type code
+            try:
+                textarea = await page.wait_for_selector("textarea", timeout=15000)
+            except PlaywrightTimeoutError:
+                await browser.close()
+                raise RuntimeError("Editor textarea not found on Ray.so")
 
-            textarea.clear()
-            textarea.send_keys(self.code)
+            await textarea.fill(self.code)
 
             # Click "Export as PNG"
-            export_button = wait.until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, "//button[contains(., 'Export as PNG')]")
-                )
-            )
-            export_button.click()
+            export_button = await page.wait_for_selector("//button[contains(., 'Export as PNG')]", timeout=15000)
+            await export_button.click()
 
-            # Wait for download to complete
-            timeout = time.time() + 30
-            downloaded_file = None
+            # Wait for download to be triggered
+            download = await page.wait_for_event("download", timeout=30000)
+            # Save the downloaded PNG
+            await download.save_as(str(output_file))
 
-            while time.time() < timeout:
-                pngs = list(download_dir.glob("*.png"))
-                if pngs:
-                    downloaded_file = pngs[0]
-                    break
-                time.sleep(0.5)
-
-            if not downloaded_file:
-                raise RuntimeError("PNG export failed or timed out.")
-
-            downloaded_file.rename(output_file)
-
-        finally:
-            driver.quit()
+            # Close browser session
+            await browser.close()
 
         return f"Ray.so snapshot saved to {output_file}"
-
-
-if __name__ == "__main__":
-    tool = RaySoSnapshotTool(
-        code="console.log('Hello Ray.so');",
-        output_path="outputs/snapshots/rayso.png",
-        headless=True,
-    )
-    print(tool.run())
